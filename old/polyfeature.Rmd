@@ -1,0 +1,96 @@
+---
+title: "Santander LGB starteR"
+author: '@siero5335'
+date: "2/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+library(data.table)
+library(tidyverse)
+library(caret)
+library(lightgbm)
+library(pROC)
+library(e1071)
+library(fBasics)
+library(OneR)
+library(mltools)
+library(irlba)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+tr <- fread("/Users/siero5335/Desktop/santander-customer-transaction-prediction/train.csv", header = T, showProgress = F)
+te <- fread("/Users/siero5335/Desktop/santander-customer-transaction-prediction/test.csv", header = T, showProgress = F)
+```
+
+
+```{r}
+tr$ID_code = NULL
+te$ID_code = NULL
+
+target = tr$target
+summary(target)
+table(target)
+
+tr$target = NULL
+```
+
+```{r}
+tr_poly <- tr[, c(2, 3, 7, 10, 13, 14, 19, 23, 27,
+                     34, 35, 54, 77, 79, 81, 82, 95, 100,
+                     109, 110, 111, 134, 147, 155, 165, 166, 167,
+                     171, 175, 185, 199)]
+
+te_poly <- te[, c(2, 3, 7, 10, 13, 14, 19, 23, 27,
+                     34, 35, 54, 77, 79, 81, 82, 95, 100,
+                     109, 110, 111, 134, 147, 155, 165, 166, 167,
+                     171, 175, 185, 199)]
+```
+
+```{r}
+###fast version of expand.grid 
+expgr   = function(seq1,seq2){
+cbind(rep.int(seq1, length(seq2)),c(t(matrix(rep.int(seq2,     length(seq1)), nrow=length(seq2)))))
+}
+
+###polynomial feature expansion
+polyexp = function(x){
+comb    = expgr(1:ncol(x),1:ncol(x))
+comb    = comb[comb[,1]!=comb[,2],]
+nn      = sapply(1:nrow(comb),function(y){paste(names(x)[comb[y,1]],names(x)[comb[y,2]],sep=".")})
+res     = data.table(do.call("cbind",sapply(1:nrow(comb),function(y){x[,comb[y,1],with=F]*x[,comb[y,2],with=F]})))
+setnames(res,nn)
+}
+
+tr_poly <- polyexp(tr_poly)
+te_poly <- polyexp(te_poly)
+```
+
+```{r}
+tr_poly <- prcomp_irlba(tr_poly, n=25)
+te_poly <- prcomp_irlba(te_poly, n=25)
+```
+
+
+```{r}
+tr_poly <- as.data.frame(tr_poly$x)
+te_poly <- as.data.frame(te_poly$x)
+```
+
+```{r} 
+colnames(tr_poly) <- LETTERS[1:25]
+colnames(te_poly) <- LETTERS[1:25]
+```
+
+```{r}
+fwrite(tr_poly, "tr_poly.csv")
+fwrite(te_poly, "te_poly.csv")
+```

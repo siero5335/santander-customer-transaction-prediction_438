@@ -1,0 +1,80 @@
+---
+title: "Santander svm starteR"
+author: '@siero5335'
+date: "2/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+set.seed(71)
+library(data.table)
+library(uwot)
+library(ggplot2)
+```
+
+## Including Plots
+
+```{r}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+
+trID <- tr$ID_code
+teID <- te$ID_code
+
+tr$ID_code = NULL
+te$ID_code = NULL
+
+target = tr$target
+summary(target)
+table(target)
+
+tr$target = NULL
+
+
+temp <- 1:400000
+temp[1:400000] <- as.factor(target)
+temp[200001:400000] <- NA
+```
+
+```{r}
+tr_umap <- umap(tr, n_neighbors = 150, min_dist=0.001, verbose = TRUE, n_threads = 7, 
+                      y = as.factor(target), target_weight = 0.5, ret_model = TRUE, ret_nn = TRUE)
+```
+
+```{r}
+te_emb <- as.data.frame(umap_transform(te, tr_umap, verbose = TRUE))
+```
+
+```{r}
+tr_emb <- as.data.frame(tr_umap$embedding)
+```
+
+```{r}
+temp <- 1:400000
+temp[1:200000] <- trID
+temp[200001:400000] <- teID
+```
+
+```{r, fig.height=10, fig.width=10}
+g <- ggplot(tr_emb, aes(x = V1, y = V2, color = as.factor(target)))
+g <- g + geom_point(mapping = aes(alpha = 0.1, size = 3)) 
+plot(g)
+```
+
+
+
+```{r, fig.height=10, fig.width=10}
+g2 <- ggplot(te_emb, aes(x = V1, y = V2))
+g2 <- g2 + geom_point(mapping = aes(alpha = 0.1, size = 3)) 
+plot(g2)
+```
+
+```{r, fig.height=10, fig.width=10}
+g3 <- ggplot(as.data.frame(mnist_mix_umap$embedding), aes(x = V1, y = V2))
+g3 <- g3 + geom_point(mapping = aes(alpha = 0.1, size = 3)) 
+plot(g3)
+```

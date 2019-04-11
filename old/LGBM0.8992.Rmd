@@ -1,0 +1,240 @@
+---
+title: "Santander LGB starteR"
+author: '@siero5335'
+date: "2/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+library(data.table)
+library(tidyverse)
+library(caret)
+library(lightgbm)
+library(pROC)
+library(e1071)
+library(fBasics)
+library(LauraeDS)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+```
+
+
+```{r}
+tr$ID_code = NULL
+te$ID_code = NULL
+
+target = tr$target
+summary(target)
+table(target)
+
+tr$target = NULL
+
+```
+
+```{r load3}
+tr_r <- fread("train.csv", header = T, showProgress = F)
+te_r <- fread("test.csv", header = T, showProgress = F)
+
+tr_r$ID_code = NULL
+te_r$ID_code = NULL
+
+tr_r$target = NULL
+
+dataX = rbind(tr_r, te_r)
+```
+
+```{r row feature, error=FALSR, message=FALSE, warning=FALSE}
+
+cat_names <- function(round_limit = 0,
+                      limit_levels = 10) {
+    unique_len_ <-
+        sapply(dataX[, colnames(tr_r), with = F], function(x)
+            length(unique(round(x, round_limit))))
+    unique_len_ <- data.frame(
+        v = names(unique_len_),
+        len = unique_len_,
+        row.names = NULL,
+        stringsAsFactors = F
+    )
+    unique_len_ <-
+        unique_len_[order(unique_len_$len, decreasing = F), ]
+    cat(paste("Count new categorical var", nrow(unique_len_[unique_len_$len < limit_levels &
+                                                        unique_len_$len > 1,])))
+    if (nrow(unique_len_[unique_len_$len < limit_levels &
+                         unique_len_$len > 1,]) > 0) {
+        cat_var <-
+            unique_len_[unique_len_$len < limit_levels &
+                            unique_len_$len > 1, "v"]
+        cat("\n")
+        return(cat_var)
+    }
+}
+
+names_0 <- cat_names(0, 5)
+new_names_0 <- paste0(names_0, "_0")
+dataX[, (new_names_0) := lapply(dataX[, names_0, with = F], function(x)
+    as.integer(factor(round(x, 0))))]
+
+names_1 <- cat_names(1, 20)
+new_names_1 <- paste0(names_1, "_1")
+dataX[, (new_names_1) := lapply(dataX[, names_1, with = F], function(x)
+    as.integer(factor(round(x, 1))))]
+
+names_2 <- cat_names(2, 20)
+new_names_2 <- paste0(names_2, "_2")
+dataX[, (new_names_2) := lapply(dataX[, names_2, with = F], function(x)
+    as.integer(factor(round(x, 2))))]
+head(dataX)
+
+tr <- head(dataX, nrow(tr_r))
+te <- tail(dataX, nrow(te_r))
+categorical_features <- c(new_names_0, new_names_1, new_names_2)
+
+rm(dataX)
+gc()
+```
+
+```{r row feature, error=FALSR, message=FALSE, warning=FALSE}
+tr$sum <- rowSums(tr_r)
+te$sum <- rowSums(te_r)
+
+tr$rowSds <- rowSds(tr_r)
+te$rowSds <- rowSds(te_r)
+
+tr$rowSkewness <- rowSkewness(tr_r)
+te$rowSkewness <- rowSkewness(te_r)
+
+tr$rowKurtosis <- rowKurtosis(tr_r)
+te$rowKurtosis <- rowKurtosis(te_r)
+
+tr$rowMaxs <- rowMaxs(tr_r)
+te$rowMaxs <- rowMaxs(te_r)
+
+tr$rowMins <- rowMins(tr_r)
+te$rowMins <- rowMins(te_r)
+
+tr$rowQuantiles <- rowQuantiles(tr_r, prob = 0.05)
+te$rowQuantiles <- rowQuantiles(te_r, prob = 0.05)
+
+rm(tr2, te2, tr_r, te_r)
+gc(); gc()
+```
+
+```{r}
+tr_sin <- sin(tr[, c('var_12', 'var_53', 'var_6', 'var_166', 'var_148', 'var_133', 'var_169', 'var_9', 'var_95', 'var_91', 'var_93', 'var_131', 'var_71')])
+te_sin <- sin(tr[, c('var_12', 'var_53', 'var_6', 'var_166', 'var_148', 'var_133', 'var_169', 'var_9', 'var_95', 'var_91', 'var_93', 'var_131', 'var_71')])
+
+tr_aec <- fread("autoencoder/tr_aec.csv", header = T, showProgress = F)
+te_aec <- fread("autoencoder/te_aec.csv", header = T, showProgress = F)
+
+tr_umap <- fread("UMAP/tr_umap.csv", header = T, showProgress = F)
+te_umap <- fread("UMAP/te_umap.csv", header = T, showProgress = F)
+
+#tr_knn <- fread("knnFE/knn_tr.csv", header = T, showProgress = F)
+#te_knn <- fread("knnFE/knn_te.csv", header = T, showProgress = F)
+
+#dn_aec <- fread("denoise auto encoder/Denoise_autoencode_seed71_400_200_512_500.csv", header = T, showProgress = F)
+
+
+#dn_aec$ID_code <- NULL
+#dn_aec$target <- NULL
+
+#tr_dn_aec <- dn_aec[1:200000, ]
+#te_dn_aec <- dn_aec[200001:400000, ]
+
+#tr_OHE <- fread("OHE/ohe_tr_temp.csv", header = T, showProgress = F)
+#te_OHE <- fread("OHE/ohe_te_temp.csv", header = T, showProgress = F)
+
+train <- data.frame(tr, tr_aec, tr_umap, tr_sin)
+test <- data.frame(te, te_aec, te_umap, te_sin)
+
+rm(tr, tr_aec, tr_umap, tr_sin,
+   te, te_aec, te_umap)
+gc();gc()
+```
+
+```{r}
+dim(train) ; dim(test) ; setdiff(colnames(train) , colnames(test)) ; head(train) ; head(test)
+```
+
+```{r}
+nrounds = 5
+set.seed(114514)
+folds = createFolds(factor(target), k = 5, list = FALSE)
+```
+
+```{r}
+dev.result <-  rep(0, nrow(train)) 
+pred_te <- rep(0, nrow(test))
+
+tefinal = data.matrix(test)
+rm(test)
+gc();gc()
+```
+
+
+```{r}
+for (this.round in 1:nrounds){      
+      valid <- c(1:length(target)) [folds == this.round]
+      dev <- c(1:length(target)) [folds != this.round]
+
+      dtrain<- lgb.Dataset(data= as.matrix(train[dev,]), 
+                           label= target[dev], categorical_feature = categorical_features)
+                           #weight = w[dev])
+      dvalid <- lgb.Dataset(data= as.matrix(train[valid,]) , 
+                            label= target[valid], categorical_feature = categorical_features)
+      valids <- list(val = dvalid)
+      #### parameters are far from being optimal ####  
+      p <- list(boosting_type = "gbdt", 
+            objective = "binary",
+            metric = "auc",  
+            learning_rate = 0.02, 
+            max_depth = -1, 
+            num_leaves = 2,
+            bagging_freq = 1,
+            bagging_fraction = 0.8,
+            feature_fraction = 0.8,
+            lambda_l1 = 5, 
+            lambda_l2 = 5,
+            min_child_weight = 19
+               )
+
+    model<- lgb.train(data = dtrain,
+                params= p, 
+                nrounds=1000000,
+                valids = list(val1=dtrain , val2 = dvalid),
+                obj = "binary",
+                eval_freq = 2000,
+                early_stopping_rounds=500
+      )
+    
+      pred = predict(model,as.matrix(train[valid,]))
+      dev.result[valid] = pred  
+      pred_test  = predict(model,tefinal)
+  pred_te = pred_te +pred_test
+}
+```
+
+```{r}
+auc(target,dev.result)
+pred_test = pred_te/nrounds
+```
+
+```{r}
+sub <- fread("sample_submission.csv", header = T, showProgress = F)
+sub$target = as.vector(pred_test)
+head(sub)
+fwrite(sub , "LGBM0.8992.csv")
+```  
+

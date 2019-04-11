@@ -1,0 +1,27 @@
+---
+title: "Untitled"
+author: '@siero5335'
+date: "4/7/2019"
+output: html_document
+---
+
+```{r}
+library(data.table)
+submission <- read.csv("blended_submission_2019-04-08_22_50.csv")
+```
+
+```{r}
+real <- fread("synthetic_samples_indexes_test.csv")
+```
+
+```{r}
+real$V1 = real$V1 + 1
+```
+
+```{r}
+submission$target <- replace(submission$target, real$V1, 0)
+```
+
+```{r}
+write.csv(submission, file="blended_submission_2019-04-08_22_50_fake.csv", row.names=F)
+```

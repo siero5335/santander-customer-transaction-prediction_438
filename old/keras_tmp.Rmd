@@ -1,0 +1,179 @@
+---
+title: "Santander LGB starteR"
+author: '@siero5335'
+date: "2/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+library(data.table)
+library(tidyverse)
+library(caret)
+library(keras)
+library(pROC)
+library(e1071)
+use_backend(backend = "plaidml")
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+```
+
+
+```{r}
+tr$ID_code = NULL
+te$ID_code = NULL
+
+target = as.factor(tr$target)
+summary(target)
+table(target)
+
+tr$target = NULL
+```
+
+```{r}
+tr_tr <- trunc(tr)
+te_tr <- trunc(te)
+
+
+tr_digit0 <- tr %>% round()
+te_digit0 <- te %>% round()
+
+tr_digit1 <- tr %>% round(1)
+te_digit1 <- te %>% round(1)
+
+tr_digit2 <- tr %>% round(2)
+te_digit2 <- te %>% round(2)
+```
+
+
+```{r factor}
+tr$f_var_68 <- as.factor(tr$var_68) %>%
+  fct_lump(prop = 0.001)
+
+te$f_var_68 <- as.factor(te$var_68) %>%
+  fct_lump(prop = 0.001)
+```
+
+```{r FE}
+fe_tr <- tr %>%
+ group_by(f_var_68) %>%
+ summarise_at(vars(starts_with("var")), c(mean, median, sd, skewness, kurtosis, sum, max, min))
+
+fe_te <- te %>%
+ group_by(f_var_68) %>%
+ summarise_at(vars(starts_with("var")), c(mean, median, sd, skewness, kurtosis, sum,  max, min))
+```
+
+```{r join}
+tr <- tr %>%
+ left_join(fe_tr, by = "f_var_68")
+
+te <- te %>%
+ left_join(fe_te, by = "f_var_68")
+
+rm(fe_tr, fe_te)
+gc();gc()
+```
+
+```{r}
+tr_aec <- fread("autoencoder/tr_aec.csv", header = T, showProgress = F)
+te_aec <- fread("autoencoder/te_aec.csv", header = T, showProgress = F)
+
+tr_umap <- fread("UMAP/tr_umap.csv", header = T, showProgress = F)
+te_umap <- fread("UMAP/te_umap.csv", header = T, showProgress = F)
+
+tr_knn <- fread("knnFE/knn_tr.csv", header = T, showProgress = F)
+te_knn <- fread("knnFE/knn_te.csv", header = T, showProgress = F)
+
+dn_aec <- fread("denoise auto encoder/Denoise_autoencode_seed71_400_200_512_500.csv",
+                header = T, showProgress = F)
+
+
+dn_aec$ID_code <- NULL
+dn_aec$target <- NULL
+
+tr_dn_aec <- dn_aec[1:200000, ]
+te_dn_aec <- dn_aec[200001:400000, ]
+
+#tr_OHE <- fread("OHE/ohe_tr_temp.csv", header = T, showProgress = F)
+#te_OHE <- fread("OHE/ohe_te_temp.csv", header = T, showProgress = F)
+
+train <- data.frame(tr, tr_tr, tr_aec, tr_umap, tr_dn_aec, tr_knn, tr_digit0, tr_digit1, tr_digit2)
+test <- data.frame(te, te_tr, te_aec, te_umap, te_dn_aec, te_knn, te_digit0, te_digit1, te_digit2)
+
+train$f_var_68 <- NULL
+test$f_var_68 <- NULL
+
+rm(tr, tr_tr, tr_aec, tr_umap, tr_dn_aec, tr_knn, dn_aec, tr_digit0, tr_digit1, tr_digit2,
+   te, te_tr, te_aec, te_umap, te_dn_aec, te_knn, te_digit0, te_digit1, te_digit2)
+
+train <- scale(train)
+test <- scale(test)
+gc();gc()
+```
+
+```{r}
+dim(train) ; dim(test) ; setdiff(colnames(train) , colnames(test)) ; head(train) ; head(test)
+```
+
+```{r}
+nrounds = 5
+set.seed(71)
+folds = createFolds(factor(target), k = 5, list = FALSE)
+```
+
+```{r}
+tefinal = data.matrix(test)
+```
+
+```{r}
+
+model %>% compile(
+  loss = loss_categorical_crossentropy,
+  optimizer = optimizer_adadelta(),
+  metrics = c('crossentropy')
+)
+
+ for(f in unique(raw_data$folds)){
+        
+        cat("\n Fold: ", f)
+        ind <- which(raw_data$folds == f) 
+        train_df <- data[-ind,]
+        y_train <- as.matrix(raw_data[-ind, target])
+        valid_df <- as.matrix(data[ind,])
+        y_valid <- as.matrix(raw_data[ind, target])
+        
+        model_1 <- model %>% fit(
+              x = as.matrix(train_df), y = y_train,
+              batch_size = 1025,
+              epochs = 50, validation_data = list(valid_df, y_valid))
+              # callbacks = list(callback_tensorboard(log_dir = "logs/cudnngru7"), 
+              #                  callback_early_stopping(monitor = 'val_loss')))
+        
+        
+        y <- predict(model ,tdata)
+  }
+```
+
+```{r}
+auc(target,dev.result)
+pred_test = pred_te/nrounds
+```
+
+```{r}
+sub <- fread("sample_submission.csv", header = T, showProgress = F)
+sub$target = as.vector(pred_test)
+head(sub)
+fwrite(sub , "LGBM0.8976.csv")
+```  
+

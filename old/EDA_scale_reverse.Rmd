@@ -1,0 +1,224 @@
+---
+title: "sant_EDA1"
+author: "@aiero5335"
+date: "2/14-16/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r liv, include=FALSE}
+library(tidyverse) # metapackage with lots of helpful functions
+library(data.table)
+library(corrplot)
+library(DataExplorer)
+library(ggthemes)
+library(minerva)
+```
+
+
+```{r load}
+tr <- fread("PDF/trPDF.csv", header = T, showProgress = F)
+te <- fread("PDF/tePDF.csv", header = T, showProgress = F)
+```
+
+```{r target}
+target <- tr$target
+tr$target <- NULL
+summary(as.factor(target))
+```
+
+```{r remID}
+tr$ID_code <- NULL
+te$ID_code <- NULL
+```
+
+```{r str tr}
+plot_str(tr)
+```
+
+```{r str te}
+plot_str(te)
+```
+
+only_contiguous
+
+```{r intro tr te}
+introduce(tr)
+introduce(te)
+```
+
+```{r cor tr, fig.height=25, fig.width=25}
+tr %>%
+cor(use="complete.obs") %>%
+corrplot(type="lower", diag=FALSE)
+```
+
+```{r cor te, fig.height=25, fig.width=25}
+te %>%
+cor(use="complete.obs") %>%
+corrplot(type="lower", diag=FALSE)
+```
+
+No corrlation (Nomarized data?)
+
+```{r cor tr sin, fig.height=25, fig.width=25}
+tr %>%
+  sin() %>%
+cor(use="complete.obs") %>%
+corrplot(type="lower", diag=FALSE)
+```
+
+```{r cor te sin, fig.height=25, fig.width=25}
+te %>%
+    sin() %>%
+cor(use="complete.obs") %>%
+corrplot(type="lower", diag=FALSE)
+```
+
+```{r load2}
+train <- fread("PDF/trPDF.csv", header = T, showProgress = F)
+```
+
+```{r dist1}
+feature_groups <- 3:22
+col_names <- colnames(train)[c(2,feature_groups)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+var0, 1, 2, 6, 9, 12, 13, 14, 18
+
+```{r dist2}
+col_names <- colnames(train)[c(2,feature_groups+20)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+ver21, 22, 26, 33, 34, 35, 36
+
+
+  
+```{r dist3}
+col_names <- colnames(train)[c(2,feature_groups+40)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+  
+ver40, 41, 44, 48, 52, 53, 55
+
+```{r dist4}
+col_names <- colnames(train)[c(2,feature_groups+60)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+
+ver 66, 67, 71, 75, 76, 78
+
+```{r dist5}
+col_names <- colnames(train)[c(2,feature_groups+80)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+  
+ver80, 81, 86, 92, 93, 94, 95, 99
+
+```{r dist6}
+col_names <- colnames(train)[c(2,feature_groups+100)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+
+ver108, 109, 110, 115, 116, 118, 119
+
+```{r dist7}
+col_names <- colnames(train)[c(2,feature_groups+120)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+
+ver121, 122, 123, 125, 127, 130, 131, 132, 133, 135, 137, 139
+
+```{r dist8}
+col_names <- colnames(train)[c(2,feature_groups+140)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+
+ver141, 146, 147, 148, 149, 154, 157
+
+```{r dist9}
+col_names <- colnames(train)[c(2,feature_groups+160)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+
+ver 163, 164, 165, 166, 169, 170, 172, 173, 174, 177, 179
+
+```{r dist10}
+col_names <- colnames(train)[c(2,feature_groups+180)]
+temp <- gather(train[,col_names, with=F], key="features", value="value", -target)
+temp$target <- factor(temp$target)
+temp$features <- factor(temp$features, levels=col_names[-1], labels=col_names[-1])
+ggplot(data=temp, aes(x=value)) +
+  geom_density(aes(fill=target, color=target), alpha=0.3) +
+  scale_color_manual(values = c("1" = "dodgerblue", "0"="firebrick1")) +
+  theme_tufte() +
+  facet_wrap(~ features, ncol = 4, scales = "free")
+```
+
+ver180, 184, 188, 190, 191, 192, 198

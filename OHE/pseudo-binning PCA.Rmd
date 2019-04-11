@@ -1,0 +1,76 @@
+---
+title: "pseudo-binning PCA"
+author: '@siero5335'
+date: "2/18/2019"
+output: html_document
+---
+
+```{r setup}
+library(tidyverse)
+library(lightgbm)
+library(xgboost)
+library(data.table)
+library(caret)
+library(mltools)
+library(irlba)
+```
+
+```{r import1}
+sub = read_csv("sample_submission.csv")
+tr = fread("train.csv")
+te = fread("test.csv")
+```
+
+```{r rem id}
+tr$ID_code = NULL
+te$ID_code = NULL
+```
+
+```{r target}
+target = tr$target
+summary(target)
+table(target)
+tr$target <- NULL
+```
+
+```{r pseudo-binning one hot1}
+ohe_tr_temp <- tr %>%
+    select(-var_136, -var_117, -var_17, -var_161, -var_30, -var_103,
+               -var_124, -var_185, -var_38, -var_98, -var_7, -var_10, -var_100,
+               -var_126, -var_39, -var_183, -var_41, -var_27, -var_73, -var_189,
+               -var_29, -var_42, -var_182, -var_16, -var_47, -var_79, -var_176,
+               -var_65, -var_160, -var_98
+               ) %>%
+  round() %>%
+  mutate_if(is.numeric, as.factor) %>%
+  data.table() %>%  
+  one_hot() %>% 
+  prcomp_irlba(n=100)
+
+ohe_tr_temp <- ohe_tr_temp$x
+gc();gc()
+```  
+
+```{r pseudo-binning one hot2}
+ohe_te_temp <- te %>%
+    select(-var_136, -var_117, -var_17, -var_161, -var_30, -var_103,
+               -var_124, -var_185, -var_38, -var_98, -var_7, -var_10, -var_100,
+               -var_126, -var_39, -var_183, -var_41, -var_27, -var_73, -var_189,
+               -var_29, -var_42, -var_182, -var_16, -var_47, -var_79, -var_176,
+               -var_65, -var_160, -var_98
+               ) %>%
+  round() %>%
+  mutate_if(is.numeric, as.factor) %>%
+  data.table() %>%  
+  one_hot() %>% 
+  prcomp_irlba(n=100)
+
+ohe_te_temp <- ohe_te_temp$x
+gc();gc()
+```
+
+
+```{r sace}
+fwrite(as.data.frame(ohe_tr_temp), "ohe_tr_temp.csv")
+fwrite(as.data.frame(ohe_te_temp), "ohe_te_temp.csv")
+```

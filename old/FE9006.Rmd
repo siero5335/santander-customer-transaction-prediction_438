@@ -1,0 +1,131 @@
+---
+title: "Santander LGB starteR"
+author: '@siero5335'
+date: "2/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+library(data.table)
+library(tidyverse)
+library(caret)
+library(lightgbm)
+library(pROC)
+library(e1071)
+library(fBasics)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+```
+
+
+```{r}
+tr$ID_code = NULL
+te$ID_code = NULL
+
+target = tr$target
+summary(target)
+table(target)
+
+tr$target = NULL
+
+tr <- tr[, -c('var_90', 'var_161')]
+te <- te[, -c('var_90', 'var_161')]
+```
+
+```{r load3}
+tr_r <- fread("train.csv", header = T, showProgress = F)
+te_r <- fread("test.csv", header = T, showProgress = F)
+
+tr_r$ID_code = NULL
+te_r$ID_code = NULL
+
+tr_r$target = NULL
+
+tr_r <- tr_r[, -c('var_90', 'var_161')]
+te_r <- te_r[, -c('var_90', 'var_161')]
+```
+
+```{r row feature, error=FALSR, message=FALSE, warning=FALSE}
+tr$sum <- rowSums(tr_r)
+te$sum <- rowSums(te_r)
+
+tr$rowSds <- rowSds(tr_r)
+te$rowSds <- rowSds(te_r)
+
+tr$rowSkewness <- rowSkewness(tr_r)
+te$rowSkewness <- rowSkewness(te_r)
+
+tr$rowKurtosis <- rowKurtosis(tr_r)
+te$rowKurtosis <- rowKurtosis(te_r)
+
+tr$rowMaxs <- rowMaxs(tr_r)
+te$rowMaxs <- rowMaxs(te_r)
+
+tr$rowMins <- rowMins(tr_r)
+te$rowMins <- rowMins(te_r)
+
+tr$rowQuantiles <- rowQuantiles(tr_r, prob = 0.05)
+te$rowQuantiles <- rowQuantiles(te_r, prob = 0.05)
+
+rm(tr2, te2, tr_r, te_r)
+gc(); gc()
+```
+
+```{r}
+tr_sin <- sin(tr[, c('var_12', 'var_53', 'var_6', 'var_166', 'var_148', 'var_133', 'var_169', 'var_9', 'var_95', 'var_91', 'var_93', 'var_131', 'var_71', 'var_68')])
+te_sin <- sin(te[, c('var_12', 'var_53', 'var_6', 'var_166', 'var_148', 'var_133', 'var_169', 'var_9', 'var_95', 'var_91', 'var_93', 'var_131', 'var_71', 'var_68')])
+
+tr_aec <- fread("denoising autoencoder 2/finaltrainset_dae2.csv", showProgress = F)
+te_aec <- fread("denoising autoencoder 2/finaltrestset_dae2.csv", showProgress = F)
+
+tr_umap <- fread("UMAP/tr_umap.csv", header = T, showProgress = F)
+te_umap <- fread("UMAP/te_umap.csv", header = T, showProgress = F)
+
+#tr_knn <- fread("knnFE/knn_tr.csv", header = T, showProgress = F)
+#te_knn <- fread("knnFE/knn_te.csv", header = T, showProgress = F)
+
+#dn_aec <- fread("denoise auto encoder/Denoise_autoencode_seed71_400_200_512_500.csv", header = T, showProgress = F)
+
+
+#dn_aec$ID_code <- NULL
+#dn_aec$target <- NULL
+
+#tr_dn_aec <- dn_aec[1:200000, ]
+#te_dn_aec <- dn_aec[200001:400000, ]
+
+#tr_OHE <- fread("OHE/ohe_tr_temp.csv", header = T, showProgress = F)
+#te_OHE <- fread("OHE/ohe_te_temp.csv", header = T, showProgress = F)
+
+train <- data.frame(tr, tr_aec, tr_umap, tr_sin)
+test <- data.frame(te, te_aec, te_umap, te_sin)
+
+rm(tr, tr_aec, tr_umap, tr_sin, te_sin,
+   te, te_aec, te_umap)
+gc();gc()
+```
+
+```{r}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+```
+
+```{r}
+train <- data.frame(tr[, 1:2], train)
+test <- data.frame(te[, 1], test)
+```
+
+```{r}
+fwrite(train, "trainFE9006.csv")
+fwrite(test, "testFE9006.csv")
+```

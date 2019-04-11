@@ -1,0 +1,65 @@
+---
+title: "sant_UMAP"
+author: '@siero5335'
+date: "2/15/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r liv, include=FALSE}
+library(data.table)
+library(h2o)
+library(readr)
+
+set.seed(71)
+```
+
+```{r load}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+```
+
+```{r target}
+target <- tr$target
+tr$target <- NULL
+summary(as.factor(target))
+```
+
+```{r remID}
+tr$ID_code <- NULL
+te$ID_code <- NULL
+```
+
+```{r h2o}
+h2o.init(nthreads = 4, max_mem_size = "16G")
+h2o.no_progress()
+
+tr_h2o <- as.h2o(tr)
+te_h2o <- as.h2o(te)
+```
+
+
+```{r h2o autoen}
+n_comp <- 4
+m_aec <- h2o.deeplearning(training_frame = tr_h2o,
+                          x = 1:ncol(tr_h2o),
+                          autoencoder = T,
+                          activation = "Tanh",
+                          reproducible = TRUE,
+                          seed = 71,
+                          sparse = T,
+                          hidden = c(32, n_comp, 32),
+                          max_w2 = 5,
+                          epochs = 10)
+
+tr_aec <- as.data.table(h2o.deepfeatures(m_aec, tr_h2o, layer = 2))
+te_aec <- as.data.table(h2o.deepfeatures(m_aec, te_h2o, layer = 2))
+```
+
+```{r csv}
+write_csv(as.data.frame(tr_aec), 'tr_aec.csv')
+write_csv(as.data.frame(te_aec), 'te_aec.csv')
+```

@@ -1,0 +1,288 @@
+---
+title: "Untitled"
+author: '@siero5335'
+date: "3/22/2019"
+output: html_document
+---
+
+```{r}
+set.seed(9000)
+
+library(data.table)
+library(caret)
+library(lightgbm)
+library(pROC)
+library(dplyr)
+library(fBasics)
+
+augment = function (x) {
+    x = as.data.frame(x)
+    for (col in colnames(x)) {
+        x[,col] = sample(x[,col])    
+    }
+    x
+}
+
+trainX <- fread("PDF/trPDF.csv")
+testX <- fread("PDF/tePDF.csv")
+
+trainY <- trainX$target
+tr <- trainX[, !c("target", "ID_code"), with = F]
+te <- testX[, !c("ID_code"), with = F]
+
+#tr_poly <- fread("denoising autoencoder 2/finaltrainset_dae2.csv")
+#te_poly <- fread("denoising autoencoder 2/finaltrestset_dae2.csv")
+
+#trainX <- cbind(trainX, tr_poly)
+#testX <- cbind(testX, te_poly)
+
+fold_num <- 3
+folds = createFolds(factor(trainY), k = fold_num, list = FALSE)
+```
+
+```{r load3}
+tr_r <- fread("train.csv", header = T, showProgress = F)
+te_r <- fread("test.csv", header = T, showProgress = F)
+
+tr_r$ID_code = NULL
+te_r$ID_code = NULL
+
+tr_r$target = NULL
+```
+
+```{r row feature1, error=FALSR, message=FALSE, warning=FALSE}
+tr$sum_var1 <- rowSums(tr_r[, c("var_7",  "var_41",  "var_51",  "var_70",  "var_74",  "var_77",  "var_85", "var_96",  "var_102", "var_136", "var_160", "var_172")])
+te$sum_var1 <- rowSums(te_r[, c("var_7",  "var_41",  "var_51",  "var_70",  "var_74",  "var_77",  "var_85", "var_96",  "var_102", "var_136", "var_160", "var_172")])
+
+tr$rowSds_var1 <- rowSds(tr_r[, c("var_7",  "var_41",  "var_51",  "var_70",  "var_74",  "var_77",  "var_85", "var_96",  "var_102", "var_136", "var_160", "var_172")])
+
+te$rowSds_var1 <- rowSds(te_r[, c("var_7",  "var_41",  "var_51",  "var_70",  "var_74",  "var_77",  "var_85", "var_96",  "var_102", "var_136", "var_160", "var_172")])
+
+tr$rowSkewness_var1 <- rowSkewness(tr_r[, c("var_7",  "var_41",  "var_51",  "var_70",  "var_74",  "var_77",  "var_85", "var_96",  "var_102", "var_136", "var_160", "var_172")])
+te$rowSkewness_var1 <- rowSkewness(te_r[, c("var_7",  "var_41",  "var_51",  "var_70",  "var_74",  "var_77",  "var_85", "var_96",  "var_102", "var_136", "var_160", "var_172")])
+
+tr$rowKurtosis_var1 <- rowKurtosis(tr_r[, c("var_7",  "var_41",  "var_51",  "var_70",  "var_74",  "var_77",  "var_85", "var_96",  "var_102", "var_136", "var_160", "var_172")])
+te$rowKurtosis_var1 <- rowKurtosis(te_r[, c("var_7",  "var_41",  "var_51",  "var_70",  "var_74",  "var_77",  "var_85", "var_96",  "var_102", "var_136", "var_160", "var_172")])
+```
+
+```{r row feature2, error=FALSR, message=FALSE, warning=FALSE}
+tr$sum_var2 <- rowSums(tr_r[, c("var_0",   "var_2",   "var_20",  "var_21",  "var_46",  "var_56",  "var_67" ,
+                                "var_76",  "var_92",  "var_94",  "var_109", "var_129", "var_142" ,"var_150",
+                                "var_153", "var_158", "var_174", "var_177", "var_194")])
+te$sum_var2 <- rowSums(te_r[, c("var_0",   "var_2",   "var_20",  "var_21",  "var_46",  "var_56",  "var_67" ,
+                                "var_76",  "var_92",  "var_94",  "var_109", "var_129", "var_142" ,"var_150",
+                                "var_153", "var_158", "var_174", "var_177", "var_194")])
+
+tr$rowSds_var2 <- rowSds(tr_r[, c("var_0",   "var_2",   "var_20",  "var_21",  "var_46",  "var_56",  "var_67" ,
+                                "var_76",  "var_92",  "var_94",  "var_109", "var_129", "var_142" ,"var_150",
+                                "var_153", "var_158", "var_174", "var_177", "var_194")])
+te$rowSds_var2 <- rowSds(te_r[, c("var_0",   "var_2",   "var_20",  "var_21",  "var_46",  "var_56",  "var_67" ,
+                                "var_76",  "var_92",  "var_94",  "var_109", "var_129", "var_142" ,"var_150",
+                                "var_153", "var_158", "var_174", "var_177", "var_194")])
+
+tr$rowSkewness_var2 <- rowSkewness(tr_r[, c("var_0",   "var_2",   "var_20",  "var_21",  "var_46",  "var_56",  "var_67" ,
+                                "var_76",  "var_92",  "var_94",  "var_109", "var_129", "var_142" ,"var_150",
+                                "var_153", "var_158", "var_174", "var_177", "var_194")])
+te$rowSkewness_var2 <- rowSkewness(te_r[, c("var_0",   "var_2",   "var_20",  "var_21",  "var_46",  "var_56",  "var_67" ,
+                                "var_76",  "var_92",  "var_94",  "var_109", "var_129", "var_142" ,"var_150",
+                                "var_153", "var_158", "var_174", "var_177", "var_194")])
+
+tr$rowKurtosis_var2 <- rowKurtosis(tr_r[, c("var_0",   "var_2",   "var_20",  "var_21",  "var_46",  "var_56",  "var_67" ,
+                                "var_76",  "var_92",  "var_94",  "var_109", "var_129", "var_142" ,"var_150",
+                                "var_153", "var_158", "var_174", "var_177", "var_194")])
+te$rowKurtosis_var2 <- rowKurtosis(te_r[, c("var_0",   "var_2",   "var_20",  "var_21",  "var_46",  "var_56",  "var_67" ,
+                                "var_76",  "var_92",  "var_94",  "var_109", "var_129", "var_142" ,"var_150",
+                                "var_153", "var_158", "var_174", "var_177", "var_194")])
+```
+
+```{r row feature3, error=FALSR, message=FALSE, warning=FALSE}
+tr$sum_var3 <- rowSums(tr_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+te$sum_var3 <- rowSums(te_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+
+tr$rowSds_var3 <- rowSds(tr_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+te$rowSds_var3 <- rowSds(te_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+
+tr$rowSkewness_var3 <- rowSkewness(tr_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+te$rowSkewness_var3 <- rowSkewness(te_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+
+tr$rowKurtosis_var3 <- rowKurtosis(tr_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+te$rowKurtosis_var3 <- rowKurtosis(te_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+
+tr$rowMaxs_var3 <- rowMaxs(tr_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+te$rowMaxs_var3 <- rowMaxs(te_r[, c("var_4",   "var_12",  "var_15",  "var_18",  "var_25",  "var_33",  "var_34" ,
+                                "var_42",  "var_43",  "var_48",  "var_49",  "var_50",  "var_55",  "var_75" ,
+                                "var_79",  "var_81",  "var_84",  "var_93",  "var_104", "var_108", "var_113",
+                                "var_117", "var_120", "var_121", "var_125", "var_126", "var_130", "var_135",
+                                "var_141", "var_143", "var_144", "var_156", "var_163", "var_165", "var_183",
+                                "var_184", "var_186", "var_188")])
+```
+
+
+```{r row feature5, error=FALSR, message=FALSE, warning=FALSE}
+tr$sum_var5 <- rowSums(tr_r[, c("var_17",  "var_27",  "var_32",  "var_36",  "var_40",  "var_63",  "var_72" ,
+                                "var_80",  "var_99",  "var_115", "var_118", "var_119", "var_122", "var_134",
+                                 "var_138", "var_155", "var_157", "var_167", "var_173", "var_187", "var_189", "var_195")])
+te$sum_var5 <- rowSums(te_r[, c("var_17",  "var_27",  "var_32",  "var_36",  "var_40",  "var_63",  "var_72" ,
+                                "var_80",  "var_99",  "var_115", "var_118", "var_119", "var_122", "var_134",
+                                 "var_138", "var_155", "var_157", "var_167", "var_173", "var_187", "var_189", "var_195")])
+
+tr$rowSds_var5 <- rowSds(tr_r[, c("var_17",  "var_27",  "var_32",  "var_36",  "var_40",  "var_63",  "var_72" ,
+                                "var_80",  "var_99",  "var_115", "var_118", "var_119", "var_122", "var_134",
+                                 "var_138", "var_155", "var_157", "var_167", "var_173", "var_187", "var_189", "var_195")])
+te$rowSds_var5 <- rowSds(te_r[, c("var_17",  "var_27",  "var_32",  "var_36",  "var_40",  "var_63",  "var_72" ,
+                                "var_80",  "var_99",  "var_115", "var_118", "var_119", "var_122", "var_134",
+                                 "var_138", "var_155", "var_157", "var_167", "var_173", "var_187", "var_189", "var_195")])
+
+tr$rowSkewness_var5 <- rowSkewness(tr_r[, c("var_17",  "var_27",  "var_32",  "var_36",  "var_40",  "var_63",  "var_72" ,
+                                "var_80",  "var_99",  "var_115", "var_118", "var_119", "var_122", "var_134",
+                                 "var_138", "var_155", "var_157", "var_167", "var_173", "var_187", "var_189", "var_195")])
+te$rowSkewness_var5 <- rowSkewness(te_r[, c("var_17",  "var_27",  "var_32",  "var_36",  "var_40",  "var_63",  "var_72" ,
+                                "var_80",  "var_99",  "var_115", "var_118", "var_119", "var_122", "var_134",
+                                 "var_138", "var_155", "var_157", "var_167", "var_173", "var_187", "var_189", "var_195")])
+
+tr$rowKurtosis_var5 <- rowKurtosis(tr_r[, c("var_17",  "var_27",  "var_32",  "var_36",  "var_40",  "var_63",  "var_72" ,
+                                "var_80",  "var_99",  "var_115", "var_118", "var_119", "var_122", "var_134",
+                                 "var_138", "var_155", "var_157", "var_167", "var_173", "var_187", "var_189", "var_195")])
+te$rowKurtosis_var5 <- rowKurtosis(te_r[, c("var_17",  "var_27",  "var_32",  "var_36",  "var_40",  "var_63",  "var_72" ,
+                                "var_80",  "var_99",  "var_115", "var_118", "var_119", "var_122", "var_134",
+                                 "var_138", "var_155", "var_157", "var_167", "var_173", "var_187", "var_189", "var_195")])
+```
+
+```{r row feature6, error=FALSR, message=FALSE, warning=FALSE}
+tr$sum_var6 <- rowSums(tr_r[, c("var_11",  "var_26",  "var_30",  "var_47",  "var_52",  "var_61",  "var_69" ,
+                                "var_82",  "var_83",  "var_128", "var_147", "var_164", "var_171", "var_176")])
+te$sum_var6 <- rowSums(te_r[, c("var_11",  "var_26",  "var_30",  "var_47",  "var_52",  "var_61",  "var_69" ,
+                                "var_82",  "var_83",  "var_128", "var_147", "var_164", "var_171", "var_176")])
+
+tr$rowSds_var6 <- rowSds(tr_r[, c("var_11",  "var_26",  "var_30",  "var_47",  "var_52",  "var_61",  "var_69" ,
+                                "var_82",  "var_83",  "var_128", "var_147", "var_164", "var_171", "var_176")])
+te$rowSds_var6 <- rowSds(te_r[, c("var_11",  "var_26",  "var_30",  "var_47",  "var_52",  "var_61",  "var_69" ,
+                                "var_82",  "var_83",  "var_128", "var_147", "var_164", "var_171", "var_176")])
+
+tr$rowSkewness_var6 <- rowSkewness(tr_r[, c("var_11",  "var_26",  "var_30",  "var_47",  "var_52",  "var_61",  "var_69" ,
+                                "var_82",  "var_83",  "var_128", "var_147", "var_164", "var_171", "var_176")])
+te$rowSkewness_var6 <- rowSkewness(te_r[, c("var_11",  "var_26",  "var_30",  "var_47",  "var_52",  "var_61",  "var_69" ,
+                                "var_82",  "var_83",  "var_128", "var_147", "var_164", "var_171", "var_176")])
+
+tr$rowKurtosis_var6 <- rowKurtosis(tr_r[, c("var_11",  "var_26",  "var_30",  "var_47",  "var_52",  "var_61",  "var_69" ,
+                                "var_82",  "var_83",  "var_128", "var_147", "var_164", "var_171", "var_176")])
+te$rowKurtosis_var6 <- rowKurtosis(te_r[, c("var_11",  "var_26",  "var_30",  "var_47",  "var_52",  "var_61",  "var_69" ,
+                                "var_82",  "var_83",  "var_128", "var_147", "var_164", "var_171", "var_176")])
+
+```
+
+```{r}
+# vectors to save AUC to validation fold and predictions on test 
+AUC_valid_folds <- vector(mode = "numeric",  length = fold_num)
+pred_test_folds <- vector(mode="list", length = fold_num)
+
+
+for (fld in 1:fold_num) {
+    cat(paste0("Fold number ", fld, "...\n"))
+    
+    newtrain = tr[folds != fld, ]
+    newlabel = trainY[folds != fld]
+    
+    zeroes = newtrain[newlabel == 0]
+    ones = newtrain[newlabel == 1]
+    
+    zeroes = bind_rows(zeroes, augment(zeroes))
+    ones = bind_rows(bind_rows(ones, augment(ones)), augment(ones))
+
+    newtrain = bind_rows(zeroes, ones)
+    newlabel = c(rep(0, nrow(zeroes)), rep(1, nrow(ones)))
+    
+    dtrain <- lgb.Dataset(data = as.matrix(newtrain), label = as.matrix(newlabel))
+    dvalid <- lgb.Dataset(data = as.matrix(tr[folds == fld, ]), label = as.matrix(trainY[folds == fld]))
+    
+    lgb_params <- list(objective = "binary", 
+                       boost="gbdt",
+                       metric="auc",
+                       boost_from_average="false",
+                       num_threads=7,
+                       learning_rate = 0.0083,
+                       num_leaves = 4,
+                       max_depth=-1, 
+                       tree_learner = "serial",
+                       feature_fraction = 0.035,
+                       bagging_freq = 5,
+                       bagging_fraction = 0.335,
+                       min_data_in_leaf = 80,
+                       min_sum_hessian_in_leaf = 10.0,
+                       verbosity = -1)
+    
+    lgb_model = lgb.train(params = lgb_params,
+                          data = dtrain,
+                          nrounds = 1000000,
+                          list(val = dvalid),
+                          eval_freq = 3000, 
+                          eval = "auc",
+                          early_stopping_rounds = 3000,
+                          seed = 44000
+    )
+    
+    pred_valid <- predict(lgb_model, as.matrix(tr[folds == fld, ]))
+    roc_obj <- roc(response = trainY[folds == fld], pred_valid)
+    AUC_valid_folds[fld] <- auc(roc_obj)
+    cat(paste0("Auc ", AUC_valid_folds[fld], "\n"))
+    test_pred <- predict(lgb_model, as.matrix(te))
+    pred_test_folds[[fld]] <- test_pred
+}
+```
+
+```{r}
+cat(paste("Average AUC", round(mean(AUC_valid_folds),5)))
+```
+
+```{r}
+final_pred <- rowMeans(sapply(pred_test_folds, rank))
+
+submission <- read.csv("sample_submission.csv")
+submission$target <- final_pred
+write.csv(submission, file="LGBMtemp.csv", row.names=F)
+```

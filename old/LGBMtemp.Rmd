@@ -1,0 +1,111 @@
+---
+title: "Untitled"
+author: '@siero5335'
+date: "3/22/2019"
+output: html_document
+---
+
+```{r}
+set.seed(9000)
+
+library(data.table)
+library(caret)
+library(lightgbm)
+library(pROC)
+library(dplyr)
+
+augment = function (x) {
+    x = as.data.frame(x)
+    for (col in colnames(x)) {
+        x[,col] = sample(x[,col])    
+    }
+    x
+}
+
+trainX <- fread("PDF/trPDF.csv")
+testX <- fread("PDF/tePDF.csv")
+
+trainY <- trainX$target
+trainX <- trainX[, !c("target", "ID_code"), with = F]
+testX <- testX[, !c("ID_code"), with = F]
+
+tr_poly <- fread("denoising autoencoder 2/finaltrainset_dae2.csv")
+te_poly <- fread("denoising autoencoder 2/finaltrestset_dae2.csv")
+
+#trainX <- cbind(trainX, tr_poly)
+#testX <- cbind(testX, te_poly)
+
+fold_num <- 3
+folds = createFolds(factor(trainY), k = fold_num, list = FALSE)
+```
+
+```{r}
+# vectors to save AUC to validation fold and predictions on test 
+AUC_valid_folds <- vector(mode = "numeric",  length = fold_num)
+pred_test_folds <- vector(mode="list", length = fold_num)
+
+
+for (fld in 1:fold_num) {
+    cat(paste0("Fold number ", fld, "...\n"))
+    
+    newtrain = trainX[folds != fld, ]
+    newlabel = trainY[folds != fld]
+    
+    zeroes = newtrain[newlabel == 0]
+    ones = newtrain[newlabel == 1]
+    
+    zeroes = bind_rows(zeroes, augment(zeroes))
+    ones = bind_rows(bind_rows(ones, augment(ones)), augment(ones))
+
+    newtrain = bind_rows(zeroes, ones)
+    newlabel = c(rep(0, nrow(zeroes)), rep(1, nrow(ones)))
+    
+    dtrain <- lgb.Dataset(data = as.matrix(newtrain), label = as.matrix(newlabel))
+    dvalid <- lgb.Dataset(data = as.matrix(trainX[folds == fld, ]), label = as.matrix(trainY[folds == fld]))
+    
+    lgb_params <- list(objective = "binary", 
+                       boost="gbdt",
+                       metric="auc",
+                       boost_from_average="false",
+                       num_threads=7,
+                       learning_rate = 0.0083,
+                       num_leaves = 3,
+                       max_depth=-1, 
+                       tree_learner = "serial",
+                       feature_fraction = 0.035,
+                       bagging_freq = 5,
+                       bagging_fraction = 0.335,
+                       min_data_in_leaf = 80,
+                       min_sum_hessian_in_leaf = 10.0,
+                       verbosity = -1)
+    
+    lgb_model = lgb.train(params = lgb_params,
+                          data = dtrain,
+                          nrounds = 1000000,
+                          list(val = dvalid),
+                          eval_freq = 3000, 
+                          eval = "auc",
+                          early_stopping_rounds = 3000,
+                          seed = 44000
+    )
+    
+    pred_valid <- predict(lgb_model, as.matrix(trainX[folds == fld, ]))
+    roc_obj <- roc(response = trainY[folds == fld], pred_valid)
+    AUC_valid_folds[fld] <- auc(roc_obj)
+    cat(paste0("Auc ", AUC_valid_folds[fld], "\n"))
+    test_pred <- predict(lgb_model, as.matrix(testX))
+    pred_test_folds[[fld]] <- test_pred
+}
+```
+
+```{r}
+cat(paste("Average AUC", round(mean(AUC_valid_folds),5)))
+```
+
+```{r}
+final_pred <- rowMeans(sapply(pred_test_folds, rank))
+
+submission <- read.csv("sample_submission.csv")
+submission$target <- final_pred
+write.csv(submission, file="LGBMtemp.csv", row.names=F)
+```

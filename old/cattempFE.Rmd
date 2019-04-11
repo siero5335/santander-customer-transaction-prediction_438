@@ -1,0 +1,114 @@
+---
+title: "Santander LGB starteR"
+author: '@siero5335'
+date: "2/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+library(data.table)
+library(tidyverse)
+library(caret)
+library(catboost)
+library(pROC)
+library(e1071)
+library(fBasics)
+library(LauraeDS)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+```
+
+
+```{r}
+tr$ID_code = NULL
+te$ID_code = NULL
+
+target = tr$target
+summary(target)
+table(target)
+
+tr$target = NULL
+```
+
+```{r load3}
+train <- tan(tr)
+test <- tan(te)
+```
+
+
+```{r}
+dim(train) ; dim(test) ; setdiff(colnames(train) , colnames(test)) ; head(train) ; head(test)
+```
+
+```{r}
+nrounds = 5
+set.seed(71)
+folds = createFolds(factor(target), k = 5, list = FALSE)
+```
+
+```{r}
+cat_features <- 68
+tefinal = catboost.load_pool(data.matrix(test))
+```
+
+```{r}
+dev.result <-  rep(0, nrow(train)) 
+pred_te <- rep(0, nrow(test))
+
+for (this.round in 1:nrounds){      
+      valid <- c(1:length(target)) [folds == this.round]
+      dev <- c(1:length(target)) [folds != this.round]
+
+      dtrain<- catboost.load_pool(data= data.matrix(train[dev,]), 
+                           label= target[dev])
+                           #weight = w[dev])
+      dvalid <- catboost.load_pool(data= data.matrix(train[valid,]) , 
+                            label= target[valid])
+      valids <- list(val = dvalid)
+      #### parameters are far from being optimal ####  
+      p <- list(iterations=50000,
+               learning_rate=0.05,
+               loss_function= 'Logloss',
+               eval_metric= 'AUC',
+               random_seed = 71,
+               metric_period = 300,
+               od_type = "Iter",
+               od_wait=500,
+               use_best_model=TRUE)
+    
+    model <- catboost.train(dtrain, dvalid, p)
+    
+      pred = catboost.predict(model, dvalid, prediction_type='Probability')
+      dev.result[valid] = pred  
+      pred_test  = catboost.predict(model,tefinal, prediction_type='Probability')
+  pred_te = pred_te + pred_test
+}
+```
+
+```{r}
+auc(target,dev.result)
+pred_test = pred_te/nrounds
+```
+
+
+```{r}
+imp <- catboost.get_feature_importance(model, 
+                                thread_count = -1)
+```  
+
+
+```{r}
+name <- as.data.frame(colnames(train))
+imp <- data.frame(name, imp)
+```  

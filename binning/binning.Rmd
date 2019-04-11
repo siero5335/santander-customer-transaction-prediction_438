@@ -1,0 +1,73 @@
+---
+title: "Santander LGB starteR"
+author: '@siero5335'
+date: "2/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+library(data.table)
+library(tidyverse)
+library(caret)
+library(lightgbm)
+library(pROC)
+library(e1071)
+library(fBasics)
+library(OneR)
+library(mltools)
+library(irlba)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+tr <- fread("/Users/siero5335/Desktop/santander-customer-transaction-prediction/train.csv", header = T, showProgress = F)
+te <- fread("/Users/siero5335/Desktop/santander-customer-transaction-prediction/test.csv", header = T, showProgress = F)
+```
+
+
+```{r}
+tr$ID_code = NULL
+te$ID_code = NULL
+
+target = tr$target
+summary(target)
+table(target)
+
+tr$target = NULL
+```
+
+```{r}
+forbin <- rbind(tr, te)
+forbin <- bin(forbin, nbins=20)
+```
+
+```{r}
+forbin <- forbin[, c(2, 3, 7, 10, 13, 14, 19, 23, 27,
+                     34, 35, 54, 77, 79, 81, 82, 95, 100,
+                     109, 110, 111, 134, 147, 155, 165, 166, 167,
+                     171, 175, 185, 199)]
+```
+
+```{r}
+forbin <- one_hot(forbin)
+```
+
+```{r}
+forbin <- prcomp_irlba(forbin, n=30)
+
+bin_tr <- forbin$x[1:200000, ]
+bin_te <- forbin$x[200001:400000, ]
+```
+
+```{r}
+fwrite(as.data.frame(bin_tr) , "bin_tr.csv")
+fwrite(as.data.frame(bin_te) , "bin_te.csv")
+```
+

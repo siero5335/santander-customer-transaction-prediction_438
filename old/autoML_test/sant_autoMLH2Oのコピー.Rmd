@@ -1,0 +1,80 @@
+---
+title: "sant_autoencoder"
+author: '@siero5335'
+date: "2/16/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r liv, include=FALSE}
+library(data.table)
+library(h2o)
+library(readr)
+
+set.seed(71)
+```
+
+```{r load}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+
+tr_aec <- fread("autoencoder/tr_aec.csv", header = T, showProgress = F)
+te_aec <- fread("autoencoder/te_aec.csv", header = T, showProgress = F)
+
+tr_umap <- fread("UMAP/tr_umap.csv", header = T, showProgress = F)
+te_umap <- fread("UMAP/te_umap.csv", header = T, showProgress = F)
+
+tr <- data.frame(tr, tr_aec, tr_umap)
+te <- data.frame(te, te_aec, te_umap)
+
+rm(tr_aec, te_aec, tr_umap, te_umap)
+gc(); gc()
+```
+
+```{r remID}
+tr$ID_code <- NULL
+te$ID_code <- NULL
+
+tr$target <- as.factor(tr$target)
+```
+
+
+```{r h2o}
+h2o.init(nthreads = -1, max_mem_size = "24G")
+
+tr_h2o <- as.h2o(tr)
+te_h2o <- as.h2o(te)
+```
+
+
+```{r h2o autoen tr}
+aml <- h2o.automl(y = "target",
+                  training_frame = tr_h2o,
+                  nfolds = 5,
+                  stopping_metric = "AUC",
+                  stopping_rounds = 3, 
+                  seed = 71,
+                  max_runtime_secs = 21600)  # 7 hour
+```
+
+```{r h2o autoen lb}
+lb <- aml@leaderboard
+lb
+```
+
+```{r h2o autoen pred}
+pred <- h2o.predict(aml@leader, te_h2o)
+```
+
+```{r h2o autoen pred}
+pred <- h2o.predict(aml@leader, te_h2o)
+```
+
+```{r sub}
+sub <- read_csv("sample_submission.csv")
+sub$target <- as.vector(pred[3])
+write_csv(sub, "h2o_autoML_0.8856.csv")
+```

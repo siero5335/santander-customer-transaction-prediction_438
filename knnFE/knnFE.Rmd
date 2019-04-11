@@ -1,0 +1,56 @@
+---
+title: "knnFE"
+author: '@siero5335'
+date: "2/21/2019"
+output: html_document
+---
+
+```{r cars}
+library(data.table)
+library(tidyverse)
+library(caret)
+library(fastknn)
+library(xgboost)
+library(lightgbm)
+library(pROC)
+library(e1071)
+```
+
+
+```{r}
+tr <- fread("train.csv", header = T, showProgress = F)
+te <- fread("test.csv", header = T, showProgress = F)
+```
+
+
+```{r}
+tr$ID_code = NULL
+te$ID_code = NULL
+
+target = tr$target
+summary(target)
+table(target)
+
+tr$target = NULL
+```
+
+
+```{r, knn}
+set.seed(71)
+new.data <- knnExtract(xtr = data.matrix(tr), ytr = as.factor(target), xte = data.matrix(te), k = 25)
+```
+
+```{r, knn}
+knn_tr <- new.data$new.tr
+knn_te <- new.data$new.te
+```
+
+```{r, scale}
+knn_tr <-  scale(knn_tr)
+knn_te <-  scale(knn_te)
+```
+
+```{r, write}
+write_csv(as.data.frame(knn_tr), "knn_tr.csv")
+write_csv(as.data.frame(knn_te), "knn_te.csv")
+```

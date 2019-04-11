@@ -1,0 +1,66 @@
+---
+title: "Santander svm starteR"
+author: '@siero5335'
+date: "2/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+set.seed(71)
+library(data.table)
+library(uwot)
+library(ggplot2)
+```
+
+## Including Plots
+```{r}
+trainX <- fread("PDF/trPDF.csv")
+testX <- fread("PDF/tePDF.csv")
+
+temp <- 1:400000
+temp[1:400000] <- as.factor(trainX$target)
+temp[200001:400000] <- as.factor(3)
+
+train_ID <- trainX[, "ID_code", with = F]
+test_ID <- testX[, "ID_code", with = F]
+```
+
+```{r}
+tr <- fread("denoising autoencoder 2/finaltrainset_dae2.csv")
+te <- fread("denoising autoencoder 2/finaltestset_dae2.csv")
+
+mix <- rbind(tr, te)
+```
+
+```{r}
+tr_umap <- umap(mix, n_neighbors = 150, min_dist=0.001, verbose = TRUE, n_threads = 7, 
+                ret_model = TRUE, ret_nn = TRUE)
+```
+
+```{r}
+tr_emb <- as.data.frame(tr_umap$embedding)
+```
+
+```{r, fig.height=20, fig.width=20}
+g <- ggplot(tr_emb, aes(x = V1, y = V2))
+g <- g + geom_point(mapping = aes(alpha = 0.1, size = 1), color = as.factor(temp)) 
+plot(g)
+```
+
+
+
+```{r, fig.height=10, fig.width=10}
+g2 <- ggplot(te_emb, aes(x = V1, y = V2))
+g2 <- g2 + geom_point(mapping = aes(alpha = 0.1, size = 3)) 
+plot(g2)
+```
+
+```{r, fig.height=10, fig.width=10}
+g3 <- ggplot(as.data.frame(mnist_mix_umap$embedding), aes(x = V1, y = V2))
+g3 <- g3 + geom_point(mapping = aes(alpha = 0.1, size = 3)) 
+plot(g3)
+```

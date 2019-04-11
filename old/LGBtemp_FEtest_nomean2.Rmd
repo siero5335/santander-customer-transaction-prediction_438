@@ -1,0 +1,202 @@
+---
+title: "Untitled"
+author: '@siero5335'
+date: "3/22/2019"
+output: html_document
+---
+
+```{r}
+set.seed(9000)
+
+library(data.table)
+library(caret)
+library(lightgbm)
+library(pROC)
+library(dplyr)
+library(fBasics)
+
+augment = function (x) {
+    x = as.data.frame(x)
+    for (col in colnames(x)) {
+        x[,col] = sample(x[,col])    
+    }
+    x
+}
+
+trainX <- fread("PDF/trPDF.csv")
+testX <- fread("PDF/tePDF.csv")
+
+trainY <- trainX$target
+tr <- trainX[, !c("target", "ID_code"), with = F]
+te <- testX[, !c("ID_code"), with = F]
+
+#tr_poly <- fread("denoising autoencoder 2/finaltrainset_dae2.csv")
+#te_poly <- fread("denoising autoencoder 2/finaltrestset_dae2.csv")
+
+#trainX <- cbind(trainX, tr_poly)
+#testX <- cbind(testX, te_poly)
+
+fold_num <- 3
+folds = createFolds(factor(trainY), k = fold_num, list = FALSE)
+```
+
+```{r load3}
+tr_r <- fread("PDF/trPDF.csv", header = T, showProgress = F)
+te_r <- fread("PDF/tePDF.csv", header = T, showProgress = F)
+
+tr_r$ID_code = NULL
+te_r$ID_code = NULL
+
+tr_r$target = NULL
+
+
+```
+
+```{r row feature1, error=FALSR, message=FALSE, warning=FALSE}
+tr_multi1 <- tr_r[, c("var_1", "var_18",  "var_21", "var_22", "var_26", "var_33", "var_34",  "var_40",  "var_44",  "var_53",  "var_76",  "var_78", "var_109", "var_110", "var_133", "var_146",  "var_148",  "var_154",   "var_165",  "var_166", "var_170", "var_174",  "var_179",  "var_184",  "var_190",  "var_198")]
+
+te_multi1 <- te_r[, c("var_1", "var_18",  "var_21", "var_22", "var_26", "var_33", "var_34",  "var_40",  "var_44",  "var_53",  "var_76",  "var_78", "var_109", "var_110", "var_133", "var_146",  "var_148",  "var_154",   "var_165",  "var_166", "var_170", "var_174",  "var_179",  "var_184",  "var_190",  "var_198")]
+```
+
+```{r row feature1, error=FALSR, message=FALSE, warning=FALSE}
+tr_multi2 <- tr_r[, c("var_0",  "var_2",  "var_6",  "var_80", "var_81",  "var_139","var_191")]
+
+te_multi2 <- te_r[, c("var_0",  "var_2",  "var_6",  "var_80", "var_81",  "var_139","var_191")]
+```
+
+```{r row feature1, error=FALSR, message=FALSE, warning=FALSE}
+tr_multi3 <- tr_r[, c("var_12",  "var_40",  "var_164",  "var_177",  "var_188")]
+
+te_multi3 <- te_r[, c("var_12",  "var_40",  "var_164",  "var_177",  "var_188")]
+```
+
+```{r row feature1, error=FALSR, message=FALSE, warning=FALSE}
+tr_multi4 <- tr_r[, c("var_9", "var_13", "var_108",  "var_184")]
+
+te_multi4 <- te_r[, c("var_9", "var_13", "var_108",  "var_184")]
+```
+
+```{r}
+tr_multi1 <- rowAvgs(tr_multi1)
+te_multi1 <- rowAvgs(te_multi1)
+
+tr_multi2 <- rowAvgs(tr_multi2)
+te_multi2 <- rowAvgs(te_multi2)
+
+tr_multi3 <- rowAvgs(tr_multi3)
+te_multi3 <- rowAvgs(te_multi3)
+
+tr_multi4 <- rowAvgs(tr_multi4)
+te_multi4 <- rowAvgs(te_multi4)
+```
+
+```{r}
+tr_multi1_2 <- tr_multi1*tr_multi2
+tr_multi1_3 <- tr_multi1*tr_multi3
+tr_multi1_4 <- tr_multi1*tr_multi4
+tr_multi2_3 <- tr_multi1*tr_multi3
+tr_multi2_4 <- tr_multi2*tr_multi4
+tr_multi3_4 <- tr_multi2*tr_multi4
+
+tr_minus1_2 <- tr_multi1-tr_multi2
+tr_minus1_3 <- tr_multi1-tr_multi3
+tr_minus1_4 <- tr_multi1-tr_multi4
+tr_minus2_3 <- tr_multi1-tr_multi3
+tr_minus2_4 <- tr_multi2-tr_multi4
+tr_minus3_4 <- tr_multi2-tr_multi4
+
+te_multi1_2 <- te_multi1*te_multi2
+te_multi1_3 <- te_multi1*te_multi3
+te_multi1_4 <- te_multi1*te_multi4
+te_multi2_3 <- te_multi1*te_multi3
+te_multi2_4 <- te_multi2*te_multi4
+te_multi3_4 <- te_multi2*te_multi4
+
+te_minus1_2 <- te_multi1-te_multi2
+te_minus1_3 <- te_multi1-te_multi3
+te_minus1_4 <- te_multi1-te_multi4
+te_minus2_3 <- te_multi1-te_multi3
+te_minus2_4 <- te_multi2-te_multi4
+te_minus3_4 <- te_multi2-te_multi4
+
+tr_muiti <- as.data.frame(data.frame(tr_multi1, tr_multi2, tr_multi3, tr_multi4, tr_multi1_2, tr_multi1_3, tr_multi1_4, tr_multi2_3, tr_multi2_4, tr_multi3_4,
+                                     tr_minus1_2, tr_minus1_3, tr_minus1_4, tr_minus2_3, tr_minus2_4, tr_minus3_4))
+
+te_muiti <- as.data.frame(data.frame(te_multi1, te_multi2, te_multi3, 
+                                     te_multi4, te_multi1_2, te_multi1_3, te_multi1_4, te_multi2_3, te_multi2_4, te_multi3_4,
+                                     te_minus1_2, te_minus1_3, te_minus1_4, te_minus2_3, te_minus2_4, te_minus3_4))
+
+tr <- cbind(tr, tr_muiti)
+te <- cbind(te, te_muiti)
+```
+
+```{r}
+# vectors to save AUC to validation fold and predictions on test 
+AUC_valid_folds <- vector(mode = "numeric",  length = fold_num)
+pred_test_folds <- vector(mode="list", length = fold_num)
+
+
+for (fld in 1:fold_num) {
+    cat(paste0("Fold number ", fld, "...\n"))
+    
+    newtrain = tr[folds != fld, ]
+    newlabel = trainY[folds != fld]
+    
+    zeroes = newtrain[newlabel == 0]
+    ones = newtrain[newlabel == 1]
+    
+    zeroes = bind_rows(zeroes, augment(zeroes))
+    ones = bind_rows(bind_rows(ones, augment(ones)), augment(ones))
+
+    newtrain = bind_rows(zeroes, ones)
+    newlabel = c(rep(0, nrow(zeroes)), rep(1, nrow(ones)))
+    
+    dtrain <- lgb.Dataset(data = as.matrix(newtrain), label = as.matrix(newlabel))
+    dvalid <- lgb.Dataset(data = as.matrix(tr[folds == fld, ]), label = as.matrix(trainY[folds == fld]))
+    
+    lgb_params <- list(objective = "binary", 
+                       boost="gbdt",
+                       metric="auc",
+                       boost_from_average="false",
+                       num_threads=7,
+                       learning_rate = 0.0083,
+                       num_leaves = 4,
+                       max_depth=-1, 
+                       tree_learner = "serial",
+                       feature_fraction = 0.035,
+                       bagging_freq = 5,
+                       bagging_fraction = 0.335,
+                       min_data_in_leaf = 80,
+                       min_sum_hessian_in_leaf = 10.0,
+                       verbosity = -1)
+    
+    lgb_model = lgb.train(params = lgb_params,
+                          data = dtrain,
+                          nrounds = 1000000,
+                          list(val = dvalid),
+                          eval_freq = 3000, 
+                          eval = "auc",
+                          early_stopping_rounds = 3000,
+                          seed = 44000
+    )
+    
+    pred_valid <- predict(lgb_model, as.matrix(tr[folds == fld, ]))
+    roc_obj <- roc(response = trainY[folds == fld], pred_valid)
+    AUC_valid_folds[fld] <- auc(roc_obj)
+    cat(paste0("Auc ", AUC_valid_folds[fld], "\n"))
+    test_pred <- predict(lgb_model, as.matrix(te))
+    pred_test_folds[[fld]] <- test_pred
+}
+```
+
+```{r}
+cat(paste("Average AUC", round(mean(AUC_valid_folds),5)))
+```
+
+```{r}
+final_pred <- rowMeans(sapply(pred_test_folds, rank))
+
+submission <- read.csv("sample_submission.csv")
+submission$target <- final_pred
+write.csv(submission, file="LGBMtemp.csv", row.names=F)
+```
